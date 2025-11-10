@@ -2,6 +2,9 @@
 
 #include <string>
 
+#include "robotController.h"
+#include "workspaceController.h"
+
 namespace controllers {
 
 class HttpController {
@@ -9,10 +12,12 @@ class HttpController {
   void handleRequest(int client);
 
  private:
-  void sendResponse(int socket, int status, const std::string& body);
-  void handleGetRequest(int client, const std::string& path);
-  void handlePostRequest(int client, const std::string& path,
-                         const std::string& body);
+  void routeGetRequest(int client, const std::string& path);
+  void routePostRequest(int client, const std::string& path,
+                        const std::string& body);
+
+  RobotController robotController;
+  WorkspaceController workspaceController;
 };
 
 }  // namespace controllers

@@ -1,83 +1,47 @@
 #include "httpController.h"
 
-#include <sys/socket.h>
 #include <unistd.h>
 
-#include <filesystem>
 #include <iostream>
 #include <sstream>
 
-#include "../services/workspaceService.h"
 #include "../utils/config.h"
 #include "../utils/utils.h"
 
-namespace fs = std::filesystem;
-
 namespace controllers {
 
-void HttpController::sendResponse(int socket, int status,
-                                  const std::string& body) {
-  const char* text;
-
-  if (status == 200) {
-    text = "OK";
-  } else if (status == 400) {
-    text = "Bad Request";
-  } else if (status == 404) {
-    text = "Not Found";
-  } else {
-    text = "Internal Server Error";
-  }
-
-  std::string response = "HTTP/1.1 " + std::to_string(status) + " " + text +
-                         "\r\n"
-                         "Content-Type: application/json\r\n"
-                         "Content-Length: " +
-                         std::to_string(body.length()) + "\r\n\r\n" + body;
-
-  send(socket, response.c_str(), response.length(), 0);
-}
-
-void HttpController::handleGetRequest(int client, const std::string& path) {
+void HttpController::routeGetRequest(int client, const std::string& path) {
+  // Route to RobotController
   if (path == "/api/robot/running") {
-    sendResponse(client, 200, R"({"success":true,"data":false})");
+    robotController.handleRunning(client);
     return;
   }
 
-  sendResponse(client, 404, utils::jsonMsg(false, "Not found"));
+  // No matching route
+  utils::sendHttpResponse(client, 404, utils::jsonMsg(false, "Not found"));
 }
 
-void HttpController::handlePostRequest(int client, const std::string& path,
-                                       const std::string& body) {
-  std::string user = utils::extractJson(body, "user");
-
-  if (user.empty()) {
-    sendResponse(client, 400, utils::jsonMsg(false, "Missing user"));
+void HttpController::routePostRequest(int client, const std::string& path,
+                                      const std::string& body) {
+  // Route to RobotController
+  if (path == "/api/robot/password") {
+    robotController.handleAuth(client, body);
     return;
   }
 
-  if (user.find("..") != std::string::npos ||
-      user.find("/") != std::string::npos) {
-    sendResponse(client, 400, utils::jsonMsg(false, "Invalid user"));
+  // Route to WorkspaceController
+  if (path == "/api/workspace/compress") {
+    workspaceController.handleCompress(client, body);
     return;
   }
 
-  if (!fs::exists(Config::PATH_HOME_BASE + user)) {
-    sendResponse(client, 404, utils::jsonMsg(false, "User not found"));
+  if (path == "/api/workspace/extract") {
+    workspaceController.handleExtract(client, body);
     return;
   }
 
-  services::WorkspaceService workspaceService;
-
-  if (path == "/compress") {
-    workspaceService.compress(user);
-    sendResponse(client, 200, utils::jsonMsg(true, "Compressed"));
-  } else if (path == "/extract") {
-    workspaceService.extract(user);
-    sendResponse(client, 200, utils::jsonMsg(true, "Extracted"));
-  } else {
-    sendResponse(client, 404, utils::jsonMsg(false, "Not found"));
-  }
+  // No matching route
+  utils::sendHttpResponse(client, 404, utils::jsonMsg(false, "Not found"));
 }
 
 void HttpController::handleRequest(int client) {
@@ -89,31 +53,35 @@ void HttpController::handleRequest(int client) {
     std::istringstream stream(req);
     std::string method, path, line;
 
+    // Parse request line
     std::getline(stream, line);
     std::istringstream(line) >> method >> path;
 
     std::cout << method << " " << path << '\n';
 
+    // Route based on HTTP method
     if (method == "GET") {
-      handleGetRequest(client, path);
+      routeGetRequest(client, path);
       return;
     }
 
     if (method == "POST") {
+      // Skip headers
       while (std::getline(stream, line) && line != "\r" && !line.empty()) {
       }
 
+      // Read body
       std::string body;
       std::getline(stream, body, '\0');
 
-      handlePostRequest(client, path, body);
+      routePostRequest(client, path, body);
       return;
     }
 
-    sendResponse(client, 404, utils::jsonMsg(false, "Not found"));
+    // Unsupported method
+    utils::sendHttpResponse(client, 404, utils::jsonMsg(false, "Not found"));
   } catch (const std::exception& e) {
-    sendResponse(client, 500,
-                 R"({"error":")" + std::string(e.what()) + R"("})");
+    utils::sendHttpResponse(client, 500, utils::jsonMsg(false, e.what()));
   }
 }
 
