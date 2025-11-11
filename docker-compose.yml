@@ -9,7 +9,7 @@ services:
     volumes:
       - default-data:/home/default
     ports:
-      - "8891:80"
+      - "8888:80"
     depends_on:
       - ssftp-server
     # networks:
