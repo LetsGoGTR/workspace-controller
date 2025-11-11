@@ -12,6 +12,8 @@ RUN apt-get update \
 RUN groupadd -g 1000 default \
     && useradd -u 1000 -g default -d /home/default -s /bin/bash -m default
 
+RUN chown -R default:default /home/default
+
 WORKDIR /app
 
 COPY . .
