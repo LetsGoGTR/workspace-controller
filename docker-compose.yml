@@ -1,29 +1,28 @@
-version: "3.8"
-
 # networks:
 #   my-network:
 #     external: true
 services:
   api-server:
-    build: .
+    build:
+      context: .
+      dockerfile: src/Dockerfile
     volumes:
       - default-data:/home/default
     ports:
       - "8888:80"
     depends_on:
-      - ssftp-server
+      - sftp-server
     # networks:
     # - my-network
 
-  ssftp-server:
-    image: atmoz/sftp
+  sftp-server:
+    build: .
     ports:
       - "8890:22"
     volumes:
       - default-data:/home/default
-    command: default:1234:1000:1000
     # networks:
     # - my-network
-    
+
 volumes:
   default-data:
