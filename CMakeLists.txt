@@ -8,8 +8,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(LIBARCHIVE REQUIRED libarchive)
 
-# Find bcrypt
-find_library(CRYPT_LIB crypt)
+# Add bcrypt library
+add_subdirectory(external/libbcrypt)
 
 add_executable(
   workspace-controller
@@ -31,5 +31,5 @@ target_include_directories(workspace-controller
 target_link_libraries(workspace-controller
   PRIVATE
     ${LIBARCHIVE_LIBRARIES}
-    ${CRYPT_LIB}
+    bcrypt
 )

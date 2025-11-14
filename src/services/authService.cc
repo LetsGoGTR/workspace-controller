@@ -1,13 +1,10 @@
 #include "authService.h"
 
-#include <crypt.h>
-#include <unistd.h>
+#include <bcrypt.h>
 
 #include <cstring>
 #include <filesystem>
 #include <fstream>
-#include <random>
-#include <sstream>
 #include <stdexcept>
 
 #include "../utils/config.h"
@@ -21,21 +18,18 @@ std::string AuthService::getPasswordFilePath(const std::string& user) {
 }
 
 std::string AuthService::hashPassword(const std::string& password) {
-  std::random_device rd;
-  std::mt19937 gen(rd());
-  std::uniform_int_distribution<> dis(0, 61);
+  char salt[BCRYPT_HASHSIZE];
+  char hash[BCRYPT_HASHSIZE];
 
-  const char* chars =
-      "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-  std::string salt = "$6$";
-  for (int i = 0; i < 16; i++) {
-    salt += chars[dis(gen)];
+  // Generate salt
+  int ret = bcrypt_gensalt(12, salt);
+  if (ret != 0) {
+    throw std::runtime_error("Failed to generate salt");
   }
-  salt += "$";
 
-  // Use crypt to hash password
-  char* hash = crypt(password.c_str(), salt.c_str());
-  if (!hash) {
+  // Hash password with generated salt
+  ret = bcrypt_hashpw(password.c_str(), salt, hash);
+  if (ret != 0) {
     throw std::runtime_error("Failed to hash password");
   }
 
@@ -100,24 +94,14 @@ bool AuthService::verifyPassword(const std::string& user,
     storedHash = initPassword(user);
   }
 
-  // Extract salt from stored hash (everything up to last $)
-  size_t lastDollar = storedHash.rfind('$');
-  if (lastDollar == std::string::npos) {
-    return false;
-  }
-  std::string salt = storedHash.substr(0, lastDollar + 1);
+  // Verify password using bcrypt_checkpw
+  int ret = bcrypt_checkpw(password.c_str(), storedHash.c_str());
 
-  // Hash provided password with same salt
-  char* hash = crypt(password.c_str(), salt.c_str());
-  if (!hash) {
-    return false;
+  if (ret == -1) {
+    throw std::runtime_error("Failed to verify password");
   }
 
-  if (storedHash != std::string(hash)) {
-    return false;
-  }
-
-  return true;
+  return ret == 0;
 }
 
 bool AuthService::changePassword(const std::string& user,
