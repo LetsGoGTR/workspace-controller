@@ -8,15 +8,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(LIBARCHIVE REQUIRED libarchive)
 
-# Add bcrypt library
-add_subdirectory(external/libbcrypt)
-
 add_executable(
   workspace-controller
   src/main.cc
   src/utils/utils.cc
   src/services/workspaceService.cc
-  src/services/authService.cc
   src/controllers/httpController.cc
   src/controllers/robotController.cc
   src/controllers/workspaceController.cc
@@ -31,5 +27,4 @@ target_include_directories(workspace-controller
 target_link_libraries(workspace-controller
   PRIVATE
     ${LIBARCHIVE_LIBRARIES}
-    bcrypt
 )

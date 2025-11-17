@@ -1,3 +1,0 @@
-[submodule "external/bcrypt"]
-	path = external/bcrypt
-	url = https://github.com/gonudayo/bcrypt.git
