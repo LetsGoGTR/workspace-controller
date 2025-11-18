@@ -1,0 +1,14 @@
+[Unit]
+Description=Workspace Controller Service
+After=network.target
+
+[Service]
+User=
+WorkingDirectory=
+ExecStart=
+Restart=always
+StandardOutput=file:/var/log/workspace-controller.log
+StandardError=file:/var/log/workspace-controller.err
+
+[Install]
+WantedBy=multi-user.target
