@@ -2,21 +2,33 @@
 
 ## 실행 방법
 
-1. 정적 빌드
+1. 빌드 폴더 생성
+```
+mkdir build && cd build
+```
+
+2. 빌드
+
+- 정적 빌드
 ```
 cmake -DBUILD_STATIC=ON ..
 make
 ```
-
-2. 동적 빌드
+- 동적 빌드
 ```
 cmake ..
 make
 ```
 
+3. 실행
+```
+./workspace-controller 
+```
+
+
 ## 콘솔 로그 활성화
 
-main.cc 수정
+src/main.cc 수정
 - 기존 init 라인을 주석 처리
 ```cpp
 plog::init(plog::info, &fileAppender);
