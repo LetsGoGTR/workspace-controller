@@ -259,9 +259,13 @@ std::string WorkspaceService::extract(const std::string& user) {
         throw std::runtime_error("Failed to create disk writer");
       }
 
-      archive_write_disk_set_options(ext, ARCHIVE_EXTRACT_TIME |
-                                              ARCHIVE_EXTRACT_PERM |
-                                              ARCHIVE_EXTRACT_SECURE_NODOTDOT);
+      archive_write_disk_set_options(
+          ext,
+          // ARCHIVE_EXTRACT_TIME | // 원본 timestamp 복원
+          ARCHIVE_EXTRACT_PERM |               // 원본 권한 복원
+              ARCHIVE_EXTRACT_SECURE_NODOTDOT  // ../ 방지
+
+      );
 
       // Header 쓰기
       r = archive_write_header(ext, entry);
