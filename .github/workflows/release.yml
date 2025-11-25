@@ -16,10 +16,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       
-      - name: Get version from tag
-        id: version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-      
       - name: Install dependencies
         run: |
           sudo apt-get update
@@ -35,64 +31,15 @@ jobs:
           cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_STATIC=ON
           cmake --build build --parallel 4
       
-      - name: Verify binary
-        run: |
-          echo "=== Binary Information ==="
-          ls -lh build/workspace-controller
-          file build/workspace-controller
-          echo ""
-          echo "=== SHA256 Checksum ==="
-          sha256sum build/workspace-controller
-          echo ""
-          echo "=== Dynamic Dependencies ==="
-          ldd build/workspace-controller || echo "Statically linked"
-      
-      - name: Create checksums
-        run: |
-          cd build
-          sha256sum workspace-controller > workspace-controller.sha256
+      - name: Prepare release files
+        run: cp workspace-controller.service build/
       
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           files: |
             build/workspace-controller
-            build/workspace-controller.sha256
-          name: Release ${{ steps.version.outputs.VERSION }}
-          body: |
-            ## Workspace Controller ${{ steps.version.outputs.VERSION }}
-            
-            ### Download
-            - **Linux x86_64**: `workspace-controller` (statically linked)
-            - **Checksum**: `workspace-controller.sha256`
-            
-            ### Build Information
-            - Platform: Ubuntu Latest
-            - Architecture: x86_64
-            - Build Type: Release
-            - Static Build: Yes
-            - Compiler: GCC
-            
-            ### Installation
-            ```
-            # Download binary
-            wget https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.VERSION }}/workspace-controller
-            
-            # Download checksum
-            wget https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.VERSION }}/workspace-controller.sha256
-            
-            # Verify checksum
-            sha256sum -c workspace-controller.sha256
-            
-            # Make executable
-            chmod +x workspace-controller
-            
-            # Run
-            ./workspace-controller
-            ```
-            
-            ### Changes
-            See commit history for details.
+            build/workspace-controller.service
           draft: false
           prerelease: false
         env:
