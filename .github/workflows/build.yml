@@ -5,7 +5,7 @@ on:
     branches: [ main, master, develop ]
   pull_request:
     branches: [ main, master ]
-  workflow_dispatch:  # 수동 실행 버튼 활성화
+  workflow_dispatch:
 
 env:
   BUILD_TYPE: Release
@@ -16,7 +16,7 @@ jobs:
     runs-on: ${{ matrix.config.os }}
     
     strategy:
-      fail-fast: false  # 하나 실패해도 다른 빌드 계속 진행
+      fail-fast: false
       matrix:
         config:
           - name: "Windows MSVC"
@@ -32,18 +32,17 @@ jobs:
             artifact: "macos"
     
     steps:
-      # 1. 소스 코드 체크아웃
       - name: Checkout code
         uses: actions/checkout@v4
       
-      # 2. vcpkg 설치 (Windows만)
-      - name: Setup vcpkg
+      # Windows: vcpkg
+      - name: Setup vcpkg (Windows)
         if: runner.os == 'Windows'
         uses: lukka/run-vcpkg@v11
         with:
-          vcpkgGitCommitId: 'a42af01b72c28a8e1d7b48107b33e4f286a55ef6'
+          vcpkgGitCommitId: '8eb57355a4ffac410a25e60899fa6925a6f86a7b'
       
-      # 3. Linux 의존성 설치
+      # Linux: apt
       - name: Install dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -52,15 +51,18 @@ jobs:
             libarchive-dev \
             libxml2-dev \
             pkg-config \
-            build-essential
+            build-essential \
+            zlib1g-dev \
+            liblzma-dev
       
-      # 4. macOS 의존성 설치
+      # macOS: brew
       - name: Install dependencies (macOS)
         if: runner.os == 'macOS'
         run: |
+          brew update
           brew install libarchive pkg-config
       
-      # 5. CMake 설정 - Windows
+      # Windows: CMake 설정
       - name: Configure CMake (Windows)
         if: runner.os == 'Windows'
         run: |
@@ -69,8 +71,11 @@ jobs:
             -DBUILD_STATIC=ON `
             -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake" `
             -DVCPKG_TARGET_TRIPLET=x64-windows-static
+        env:
+          # vcpkg 바이너리 캐싱 비활성화
+          VCPKG_BINARY_SOURCES: "clear"
       
-      # 6. CMake 설정 - Linux/macOS
+      # Unix: CMake 설정
       - name: Configure CMake (Unix)
         if: runner.os != 'Windows'
         run: |
@@ -78,22 +83,22 @@ jobs:
             -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
             -DBUILD_STATIC=ON
       
-      # 7. 빌드
+      # 빌드
       - name: Build
         run: cmake --build build --config ${{ env.BUILD_TYPE }} --parallel 4
       
-      # 8. 바이너리 위치 확인
+      # 바이너리 위치 확인
       - name: List build output
         shell: bash
         run: |
           echo "Build directory contents:"
           if [ "$RUNNER_OS" == "Windows" ]; then
-            ls -lh build/Release/
+            ls -lh build/Release/ || true
           else
-            ls -lh build/
+            ls -lh build/ || true
           fi
       
-      # 9. 아티팩트 업로드
+      # 아티팩트 업로드
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -103,4 +108,3 @@ jobs:
             build/workspace-controller
           if-no-files-found: warn
           retention-days: 90
-
