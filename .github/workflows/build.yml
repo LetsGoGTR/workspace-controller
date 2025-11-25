@@ -38,104 +38,21 @@ jobs:
       - name: Build
         run: cmake --build build --parallel 4
       
-      - name: Test binary
+      - name: Verify binary
         run: |
+          echo "=== Binary Information ==="
           ls -lh build/workspace-controller
           file build/workspace-controller
-          ldd build/workspace-controller || true
+          echo ""
+          echo "=== Size ==="
+          du -h build/workspace-controller
+          echo ""
+          echo "=== Dynamic Dependencies ==="
+          ldd build/workspace-controller || echo "Statically linked"
       
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: workspace-controller-linux
+          name: workspace-controller-linux-${{ github.sha }}
           path: build/workspace-controller
-          retention-days: 90
-
-  build-macos:
-    name: Build on macOS
-    runs-on: macos-latest
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Install dependencies
-        run: |
-          # Homebrew 업데이트 및 설치
-          brew update || true
-          brew install libarchive pkg-config cmake || brew upgrade libarchive pkg-config cmake
-          
-          # pkg-config 경로 설정
-          echo "PKG_CONFIG_PATH=$(brew --prefix)/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
-      
-      - name: Verify libarchive
-        run: |
-          pkg-config --modversion libarchive
-          pkg-config --cflags libarchive
-          pkg-config --libs libarchive
-      
-      - name: Configure CMake
-        run: |
-          cmake -B build \
-            -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
-            -DBUILD_STATIC=ON
-      
-      - name: Build
-        run: cmake --build build --parallel 4
-      
-      - name: Test binary
-        run: |
-          ls -lh build/workspace-controller
-          file build/workspace-controller
-          otool -L build/workspace-controller || true
-      
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: workspace-controller-macos
-          path: build/workspace-controller
-          retention-days: 90
-
-  build-windows:
-    name: Build on Windows (Manual vcpkg)
-    runs-on: windows-latest
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Setup vcpkg manually
-        run: |
-          git clone https://github.com/Microsoft/vcpkg.git
-          cd vcpkg
-          .\bootstrap-vcpkg.bat -disableMetrics
-          .\vcpkg integrate install
-      
-      - name: Install libarchive
-        run: |
-          cd vcpkg
-          .\vcpkg install libarchive:x64-windows-static --clean-after-build
-      
-      - name: Configure CMake
-        run: |
-          cmake -B build `
-            -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} `
-            -DBUILD_STATIC=ON `
-            -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}\vcpkg\scripts\buildsystems\vcpkg.cmake" `
-            -DVCPKG_TARGET_TRIPLET=x64-windows-static
-      
-      - name: Build
-        run: cmake --build build --config ${{ env.BUILD_TYPE }} --parallel 4
-      
-      - name: Test binary
-        run: |
-          dir build\Release\
-          dumpbin /dependents build\Release\workspace-controller.exe
-        continue-on-error: true
-      
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: workspace-controller-windows
-          path: build/Release/workspace-controller.exe
           retention-days: 90
