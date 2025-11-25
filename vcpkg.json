@@ -1,0 +1,8 @@
+{
+  "name": "workspace-controller",
+  "version": "1.0.0",
+  "dependencies": [
+    "libarchive"
+  ]
+}
+

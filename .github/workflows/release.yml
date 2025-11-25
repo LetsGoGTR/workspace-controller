@@ -1,0 +1,90 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  
+  build:
+    needs: release
+    name: Build ${{ matrix.config.name }}
+    runs-on: ${{ matrix.config.os }}
+    permissions:
+      contents: write
+    
+    strategy:
+      matrix:
+        config:
+          - name: "Windows"
+            os: windows-latest
+            asset_name: workspace-controller-windows.exe
+            build_path: build/Release/workspace-controller.exe
+          - name: "Linux"
+            os: ubuntu-latest
+            asset_name: workspace-controller-linux
+            build_path: build/workspace-controller
+          - name: "macOS"
+            os: macos-latest
+            asset_name: workspace-controller-macos
+            build_path: build/workspace-controller
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      # Windows 빌드
+      - name: Setup vcpkg (Windows)
+        if: runner.os == 'Windows'
+        uses: lukka/run-vcpkg@v11
+      
+      # Linux 빌드
+      - name: Install dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libarchive-dev libxml2-dev pkg-config
+      
+      # macOS 빌드
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: brew install libarchive pkg-config
+      
+      # 빌드
+      - name: Build
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            cmake -B build -DBUILD_STATIC=ON \
+              -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake" \
+              -DVCPKG_TARGET_TRIPLET=x64-windows-static
+            cmake --build build --config Release
+          else
+            cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_STATIC=ON
+            cmake --build build
+          fi
+      
+      # 릴리스에 업로드
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: ${{ matrix.config.build_path }}
+          name: ${{ matrix.config.asset_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+

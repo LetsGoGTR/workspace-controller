@@ -1,0 +1,106 @@
+name: Build
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:  # 수동 실행 버튼 활성화
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  build:
+    name: Build on ${{ matrix.config.name }}
+    runs-on: ${{ matrix.config.os }}
+    
+    strategy:
+      fail-fast: false  # 하나 실패해도 다른 빌드 계속 진행
+      matrix:
+        config:
+          - name: "Windows MSVC"
+            os: windows-latest
+            artifact: "windows-msvc"
+            
+          - name: "Ubuntu Linux"
+            os: ubuntu-latest
+            artifact: "linux"
+            
+          - name: "macOS"
+            os: macos-latest
+            artifact: "macos"
+    
+    steps:
+      # 1. 소스 코드 체크아웃
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      # 2. vcpkg 설치 (Windows만)
+      - name: Setup vcpkg
+        if: runner.os == 'Windows'
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgGitCommitId: 'a42af01b72c28a8e1d7b48107b33e4f286a55ef6'
+      
+      # 3. Linux 의존성 설치
+      - name: Install dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libarchive-dev \
+            libxml2-dev \
+            pkg-config \
+            build-essential
+      
+      # 4. macOS 의존성 설치
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install libarchive pkg-config
+      
+      # 5. CMake 설정 - Windows
+      - name: Configure CMake (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          cmake -B build `
+            -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} `
+            -DBUILD_STATIC=ON `
+            -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake" `
+            -DVCPKG_TARGET_TRIPLET=x64-windows-static
+      
+      # 6. CMake 설정 - Linux/macOS
+      - name: Configure CMake (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
+            -DBUILD_STATIC=ON
+      
+      # 7. 빌드
+      - name: Build
+        run: cmake --build build --config ${{ env.BUILD_TYPE }} --parallel 4
+      
+      # 8. 바이너리 위치 확인
+      - name: List build output
+        shell: bash
+        run: |
+          echo "Build directory contents:"
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            ls -lh build/Release/
+          else
+            ls -lh build/
+          fi
+      
+      # 9. 아티팩트 업로드
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: workspace-controller-${{ matrix.config.artifact }}
+          path: |
+            build/Release/workspace-controller.exe
+            build/workspace-controller
+          if-no-files-found: warn
+          retention-days: 90
+
